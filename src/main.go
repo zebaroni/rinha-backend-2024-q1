@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-playground/validator/v10"
 	"github.com/goccy/go-json"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"log"
 	"os"
@@ -59,6 +61,7 @@ func GetExtractHandler(c *fiber.Ctx) error {
 	
 	client, err := GetClient(clientId)
 	if err != nil {
+		fmt.Print(err)
 		return c.SendStatus(500)
 	}
 	if client == nil {
@@ -71,7 +74,7 @@ func GetExtractHandler(c *fiber.Ctx) error {
 }
 
 func main() {
-	con, err := pgxpool.New(context.Background(), "postgres://rinha:rinha@localhost:5432/rinha")
+	con, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URL"))
 	dbConnection = con
 
 	if err != nil {
@@ -87,8 +90,10 @@ func main() {
 		JSONDecoder: json.Unmarshal,
 	})
 
+	app.Use(recover.New())
+
 	app.Post("/clientes/:id/transacoes", CreateTransactionHandler)
 	app.Get("/clientes/:id/extrato", GetExtractHandler)
 
-	log.Fatal(app.Listen(":9999"))
+	log.Fatal(app.Listen(":" + os.Getenv("APP_PORT")))
 }
