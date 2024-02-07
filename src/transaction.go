@@ -64,12 +64,17 @@ func CreateTransaction(clientId int, transactionData *CreateTransactionData) (*C
 		return nil, errors.New("LIMIT_EXCEEDED")
 	}
 
-	_, err = tx.Exec(context.Background(), "INSERT INTO transactions(client_id,amount,operation,description) values ($1, $2, $3, $4)", clientId, transactionData.Amount, transactionData.Type, transactionData.Description)
+	batch := &pgx.Batch{}
+	batch.Queue("INSERT INTO transactions(client_id,amount,operation,description) values ($1, $2, $3, $4)", clientId, transactionData.Amount, transactionData.Type, transactionData.Description)
+	batch.Queue("UPDATE clients SET balance = $1 WHERE id = $2", newAccountBalance, clientId)
+	br := tx.SendBatch(context.Background(), batch)
+	_, err = br.Exec()
+
 	if err != nil {
 		return nil, err
 	}
 
-	_, err = tx.Exec(context.Background(), "UPDATE clients SET balance = $1 WHERE id = $2", newAccountBalance, clientId)
+	err = br.Close()
 	if err != nil {
 		return nil, err
 	}
